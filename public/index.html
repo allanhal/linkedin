@@ -21,27 +21,27 @@
 
   <main>
     <section class="panel input-panel">
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="pdf" role="tab">Upload PDF</button>
-        <button class="tab" data-tab="url" role="tab">Profile URL</button>
-        <button class="tab" data-tab="text" role="tab">Paste text</button>
-      </div>
-
       <form id="form">
-        <div class="tab-body" data-body="pdf">
-          <label class="drop" id="drop">
-            <input id="pdf" type="file" accept="application/pdf,.pdf" />
-            <span id="dropText"><strong>Choose or drop a LinkedIn PDF</strong><br />
-              <span class="muted">On the profile: <em>More → Save to PDF</em>. The file is read in your browser and never uploaded.</span></span>
-          </label>
-        </div>
-        <div class="tab-body hidden" data-body="url">
-          <input id="url" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
-        </div>
-        <div class="tab-body hidden" data-body="text">
-          <textarea id="text" rows="7"
-            placeholder="Paste profile text here (e.g. copied from the page or a 'Save to PDF' export). Use this when LinkedIn shows a login wall."></textarea>
+        <div class="sources">
+          <div class="src" data-src="pdf">
+            <label class="drop" id="drop">
+              <input id="pdf" type="file" accept="application/pdf,.pdf" />
+              <span id="dropText"><strong>Drop a LinkedIn PDF here, or click to choose</strong><br />
+                <span class="muted">On the profile: <em>More → Save to PDF</em>. Read in your browser, never uploaded.</span></span>
+            </label>
+          </div>
+          <div class="or"><span>or</span></div>
+          <div class="src" data-src="url">
+            <label class="src-label" for="url">Profile link</label>
+            <input id="url" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
+          </div>
+          <div class="or"><span>or</span></div>
+          <div class="src" data-src="text">
+            <label class="src-label" for="text">Paste profile text</label>
+            <textarea id="text" rows="4"
+              placeholder="Copy the profile page text and paste it here."></textarea>
+          </div>
         </div>
         <div class="models-head">
           <span>Model</span>

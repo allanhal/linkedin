@@ -10,7 +10,7 @@ let cached = {}; // model id → { complete, bytes } in browser storage
 let decider = null; // loaded BrowserDecider
 let engine = null; // lazily imported browser-engine.js module
 let busyModel = null; // id being downloaded/removed
-let tab = "pdf";
+let source = null; // "pdf" | "url" | "text": which input Analyse uses
 let pdfProfile = null; // { text, name, headline, location } read from an uploaded PDF
 let ctrl = null;
 let lastRecs = null;
@@ -21,7 +21,10 @@ const selected = () => MODELS.find((m) => m.id === selectedId);
 
 /* ── boot ─────────────────────────────────────────────────────── */
 async function boot() {
-  try { $("#url").value = localStorage.getItem("lia-url") || ""; } catch {}
+  try {
+    $("#url").value = localStorage.getItem("lia-url") || "";
+    if ($("#url").value) setSource("url");
+  } catch {}
   try {
     const cfg = await (await fetch("/api/config")).json();
     QUESTIONS = cfg.questions;
@@ -129,14 +132,16 @@ $("#models").addEventListener("click", async (e) => {
   await refreshCache();
 });
 
-/* ── tabs ─────────────────────────────────────────────────────── */
-document.querySelectorAll(".tab").forEach((b) =>
-  b.addEventListener("click", () => {
-    tab = b.dataset.tab;
-    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === b));
-    document.querySelectorAll(".tab-body").forEach((x) => x.classList.toggle("hidden", x.dataset.body !== tab));
-  })
-);
+/* ── input source ─────────────────────────────────────────────── */
+// All three inputs are on screen; the one filled in or edited last is analysed (and highlighted).
+function setSource(src) {
+  source = src;
+  document.querySelectorAll(".src").forEach((el) => el.classList.toggle("active", el.dataset.src === src));
+}
+$("#url").addEventListener("input", () => setSource($("#url").value.trim() ? "url" : pdfProfile ? "pdf" : $("#text").value.trim() ? "text" : null));
+$("#text").addEventListener("input", () => setSource($("#text").value.trim() ? "text" : pdfProfile ? "pdf" : $("#url").value.trim() ? "url" : null));
+$("#url").addEventListener("focus", () => $("#url").value.trim() && setSource("url"));
+$("#text").addEventListener("focus", () => $("#text").value.trim() && setSource("text"));
 
 /* ── time estimates ───────────────────────────────────────────── */
 // Remembers measured seconds-per-question per model (moving average), so the next
@@ -173,7 +178,7 @@ function showError(msg, suggestPdf) {
   const el = $("#error");
   el.innerHTML = esc(msg) + (suggestPdf ? ` <a href="#" id="toPdf">Upload the profile's PDF instead →</a>` : "");
   el.classList.remove("hidden");
-  $("#toPdf")?.addEventListener("click", (e) => { e.preventDefault(); document.querySelector('.tab[data-tab="pdf"]').click(); });
+  $("#toPdf")?.addEventListener("click", (e) => { e.preventDefault(); $("#drop").scrollIntoView({ behavior: "smooth", block: "center" }); $("#pdf").click(); });
 }
 
 /* ── modal ────────────────────────────────────────────────────── */
@@ -215,6 +220,7 @@ async function handlePdf(file) {
     $("#dropText").innerHTML = `<strong>${esc(pdfProfile.name || file.name)}</strong>${pdfProfile.headline ? ` · ${esc(pdfProfile.headline)}` : ""}<br />
       <span class="muted">${pdfProfile.pages} page${pdfProfile.pages > 1 ? "s" : ""} · ${pdfProfile.text.length.toLocaleString()} characters read · press Analyse, or choose another file</span>`;
     $("#drop").classList.add("ready");
+    setSource("pdf");
   } catch (err) {
     $("#drop").classList.remove("ready");
     $("#dropText").innerHTML = `<strong>Choose or drop a LinkedIn PDF</strong>`;
@@ -223,7 +229,7 @@ async function handlePdf(file) {
 }
 $("#pdf").addEventListener("change", (e) => handlePdf(e.target.files[0]));
 
-// Drop a PDF anywhere on the page: switch to the PDF tab and read it.
+// Drop a PDF anywhere on the page to read it.
 let dragDepth = 0;
 const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
 const showOverlay = (on) => $("#dropOverlay").classList.toggle("hidden", !on);
@@ -246,7 +252,6 @@ window.addEventListener("drop", (e) => {
   showOverlay(false);
   const file = [...e.dataTransfer.files].find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
   if (!file) return showError("That isn't a PDF. Drop the file from LinkedIn's More → Save to PDF.");
-  document.querySelector('.tab[data-tab="pdf"]').click();
   handlePdf(file);
 });
 
@@ -255,12 +260,14 @@ $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").classList.add("hidden");
   if (!selected()) return showError("No model available yet: add one to models.json (local file or Hugging Face repo).");
-  if (tab === "pdf" && !pdfProfile) return showError("Choose a LinkedIn profile PDF first.");
+  const src = source || (pdfProfile ? "pdf" : $("#text").value.trim() ? "text" : $("#url").value.trim() ? "url" : null);
+  if (!src) return showError("Drop a LinkedIn PDF, enter a profile link, or paste the profile text.");
+  setSource(src);
   const body =
-    tab === "url" ? { url: $("#url").value.trim() }
-    : tab === "pdf" ? { text: pdfProfile.text, name: pdfProfile.name, headline: pdfProfile.headline, location: pdfProfile.location, source: "pdf" }
+    src === "url" ? { url: $("#url").value.trim() }
+    : src === "pdf" ? { text: pdfProfile.text, name: pdfProfile.name, headline: pdfProfile.headline, location: pdfProfile.location, source: "pdf" }
     : { text: $("#text").value };
-  if (tab === "url") try { localStorage.setItem("lia-url", body.url); } catch {}
+  if (src === "url") try { localStorage.setItem("lia-url", body.url); } catch {}
 
   setBusy(true, "Fetching profile…");
   let profile;
@@ -529,8 +536,8 @@ boot().then(() => {
   // ?u=<profile url or handle> pre-fills and runs, e.g. from a bookmark
   const u = new URLSearchParams(location.search).get("u");
   if (u) {
-    document.querySelector('.tab[data-tab="url"]').click();
     $("#url").value = u;
+    setSource("url");
     $("#form").requestSubmit();
   }
 });

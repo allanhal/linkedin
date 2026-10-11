@@ -63,13 +63,15 @@ main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 24px; }
 }
 .panel h2 { font-size: 15px; margin: 0 0 12px; }
 
-/* input */
-.tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-.tab {
-  background: none; border: 0; padding: 6px 12px; border-radius: 999px; cursor: pointer;
-  color: var(--muted); font: inherit; font-weight: 600;
-}
-.tab.active { background: var(--accent-soft); color: var(--accent); }
+/* input sources: PDF, link and text all on screen; the active one is analysed */
+.sources { display: grid; gap: 4px; }
+.src { border-radius: 12px; padding: 2px; transition: box-shadow .15s; }
+.src.active { box-shadow: 0 0 0 2px var(--accent); }
+.src.active .drop, .src.active input, .src.active textarea { border-color: transparent; }
+.src-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 2px 2px 4px; }
+.src.active .src-label { color: var(--accent); }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; margin: 4px 0; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 input[type="text"], textarea, select {
   width: 100%; font: inherit; color: var(--text); background: var(--bg);
   border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
