@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LinkedIn Analyser</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a66c2'/><text x='16' y='22' font-size='15' font-family='Arial' font-weight='700' fill='white' text-anchor='middle'>in</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">in</span>
+      <div>
+        <h1>LinkedIn Analyser</h1>
+        <p class="muted">Public profile → JEV decision model running in your browser</p>
+      </div>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+  </header>
+
+  <main>
+    <section class="panel input-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="url" role="tab">Profile URL</button>
+        <button class="tab" data-tab="text" role="tab">Paste text</button>
+      </div>
+
+      <form id="form">
+        <div class="tab-body" data-body="url">
+          <input id="url" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
+        </div>
+        <div class="tab-body hidden" data-body="text">
+          <textarea id="text" rows="7"
+            placeholder="Paste profile text here (e.g. copied from the page or a 'Save to PDF' export). Use this when LinkedIn shows a login wall."></textarea>
+        </div>
+        <div class="models-head">
+          <span>Model</span>
+          <span id="storage" class="muted"></span>
+        </div>
+        <div id="models" class="models"></div>
+        <div class="controls">
+          <button id="go" class="primary" type="submit">Analyse</button>
+          <button id="stop" class="ghost hidden" type="button">Stop</button>
+        </div>
+        <p id="etaHint" class="eta-hint muted"></p>
+      </form>
+      <p id="error" class="error hidden"></p>
+    </section>
+
+    <div id="results" class="results hidden">
+      <aside class="panel profile" id="profile"></aside>
+
+      <section class="analysis">
+        <div class="panel summary">
+          <div class="ring-wrap">
+            <svg viewBox="0 0 120 120" class="ring">
+              <circle cx="60" cy="60" r="52" class="ring-bg" />
+              <circle cx="60" cy="60" r="52" class="ring-fg" id="ringFg" />
+            </svg>
+            <div class="ring-label"><strong id="overall">–</strong><span>profile score</span></div>
+          </div>
+          <div class="summary-text">
+            <div class="progress"><div id="bar"></div></div>
+            <p id="progressText" class="muted">Waiting…</p>
+            <div id="chips" class="chips"></div>
+          </div>
+        </div>
+
+        <div class="panel optimize">
+          <div class="opt-head">
+            <h2>How to optimize</h2>
+            <button id="copyRecs" class="ghost small hidden" type="button">Copy checklist</button>
+          </div>
+          <ol id="recs" class="recs"><li class="muted">Recommendations appear when the analysis finishes.</li></ol>
+          <details class="opt-more">
+            <summary>Optimization checks the model ran <span id="passedCount" class="muted"></span></summary>
+            <div id="g-Optimize" class="signals"></div>
+            <div id="passed" class="passed"></div>
+          </details>
+        </div>
+
+        <div class="grid">
+          <div class="panel"><h2>Classification</h2><div id="g-Profile"></div></div>
+          <div class="panel"><h2>Quality</h2><div id="g-Quality"></div></div>
+          <div class="panel wide"><h2>Signals</h2><div id="g-Signals" class="signals"></div></div>
+        </div>
+
+        <details class="panel raw">
+          <summary>What the model saw &amp; raw answers</summary>
+          <h3>State sent to the model</h3>
+          <pre id="state"></pre>
+          <h3>Answers</h3>
+          <pre id="raw"></pre>
+        </details>
+      </section>
+    </div>
+  </main>
+
+  <footer class="muted">Reads only the logged-out public profile page. The model runs entirely in your browser; profile text never leaves your machine except to build the analysis.</footer>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "linkedin-analyser",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LinkedIn public profile analyser running a JEV decision model (tev1) in the browser",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@wllama/wllama": "^3.8.1",
+    "cheerio": "^1.0.0",
+    "express": "^4.21.2"
+  }
+}
