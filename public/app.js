@@ -76,7 +76,7 @@ function renderModels() {
         ${c?.bytes && busyModel !== m.id ? `<button type="button" class="ghost small danger" data-act="remove" data-id="${esc(m.id)}">Remove</button>` : ""}
       </span>
     </label>`;
-  }).join("") || `<p class="muted">No models available. Add GGUF files to <code>models/</code> (see models.json).</p>`;
+  }).join("") || `<p class="muted">No models available. Add GGUF files to <code>models/</code> or set a Hugging Face repo in <code>models.json</code>.</p>`;
 }
 
 $("#models").addEventListener("change", (e) => {
@@ -165,6 +165,7 @@ function showError(msg, suggestPaste) {
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").classList.add("hidden");
+  if (!selected()) return showError("No model available yet: add one to models.json (local file or Hugging Face repo).");
   const body = tab === "url" ? { url: $("#url").value.trim() } : { text: $("#text").value };
   if (tab === "url") try { localStorage.setItem("lia-url", body.url); } catch {}
 
@@ -200,7 +201,6 @@ function setBusy(on, label) {
 async function runAnalysis(profile) {
   const keys = Object.keys(QUESTIONS);
   const model = selected();
-  if (!model) return showError("Pick a model first");
   const est = getSpeed(model.id);
   let done = 0;
   let firstAnswerAt = 0;

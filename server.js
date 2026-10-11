@@ -25,8 +25,10 @@ app.use("/vendor/wllama", express.static(path.join(dir, "node_modules/@wllama/wl
 app.use("/models", express.static(MODELS_DIR, { maxAge: "30d", immutable: true, index: false }));
 
 // ── model catalog ───────────────────────────────────────────────
-// models.json lists the GGUFs the browser can run. Each entry is either a file in
-// MODELS_DIR (served at /models/…) or a remote `url` (CDN / Hugging Face, must allow CORS).
+// models.json lists the GGUFs the browser can run. For each entry the browser downloads:
+//   1. MODELS_DIR/<file> served at /models/… when the file exists locally, else
+//   2. https://huggingface.co/<hf>/resolve/main/<file> (public repos need no key and send CORS), else
+//   3. `url` (any CORS-enabled host).
 // Split models (`name-00001-of-0000N.gguf`) list the first shard; wllama fetches the rest.
 const SHARD = /-(\d{5})-of-(\d{5})\.gguf$/;
 
@@ -40,15 +42,18 @@ function shardNames(file) {
 function loadCatalog() {
   const entries = JSON.parse(fs.readFileSync(path.join(dir, "models.json"), "utf8"));
   return entries.map((m) => {
-    const names = shardNames(m.url ? new URL(m.url).pathname.split("/").pop() : m.file);
-    if (m.url) {
-      const base = m.url.slice(0, m.url.lastIndexOf("/") + 1);
-      return { ...m, files: names.map((n) => base + n), bytes: m.bytes ?? null, available: true };
-    }
+    const names = shardNames(m.file || new URL(m.url).pathname.split("/").pop());
     const local = names.map((n) => path.join(MODELS_DIR, n));
-    const available = local.every((f) => fs.existsSync(f));
-    const bytes = available ? local.reduce((sum, f) => sum + fs.statSync(f).size, 0) : null;
-    return { ...m, files: names.map((n) => `/models/${encodeURIComponent(n)}`), bytes, available };
+    if (m.file && local.every((f) => fs.existsSync(f))) {
+      const bytes = local.reduce((sum, f) => sum + fs.statSync(f).size, 0);
+      return { ...m, source: "local", files: names.map((n) => `/models/${encodeURIComponent(n)}`), bytes, available: true };
+    }
+    const remote = m.hf ? `https://huggingface.co/${m.hf}/resolve/main/${m.file}` : m.url;
+    if (remote) {
+      const base = remote.slice(0, remote.lastIndexOf("/") + 1);
+      return { ...m, source: m.hf ? "huggingface" : "url", files: names.map((n) => base + encodeURIComponent(n)), bytes: m.bytes ?? null, available: true };
+    }
+    return { ...m, files: [], bytes: null, available: false };
   });
 }
 
@@ -91,6 +96,6 @@ app.post("/api/recommend", (req, res) => {
 app.listen(PORT, HOST, () => {
   console.log(`LinkedIn Analyser → http://${HOST}:${PORT}`);
   for (const m of loadCatalog()) {
-    console.log(`  ${m.available ? "✓" : "✗"} ${m.name} ${m.quant}${m.available ? "" : `  (missing ${m.file} in ${MODELS_DIR})`}`);
+    console.log(`  ${m.available ? "✓" : "✗"} ${m.name} ${m.quant}  ${m.available ? `(${m.source}: ${m.files[0]})` : `(missing ${m.file} in ${MODELS_DIR}, and no "hf"/"url" set)`}`);
   }
 });
