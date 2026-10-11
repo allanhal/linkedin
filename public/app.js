@@ -10,7 +10,7 @@ let cached = {}; // model id → { complete, bytes } in browser storage
 let decider = null; // loaded BrowserDecider
 let engine = null; // lazily imported browser-engine.js module
 let busyModel = null; // id being downloaded/removed
-let tab = "url";
+let tab = "pdf";
 let pdfProfile = null; // { text, name, headline, location } read from an uploaded PDF
 let ctrl = null;
 let lastRecs = null;
@@ -222,12 +222,32 @@ async function handlePdf(file) {
   }
 }
 $("#pdf").addEventListener("change", (e) => handlePdf(e.target.files[0]));
-$("#drop").addEventListener("dragover", (e) => { e.preventDefault(); $("#drop").classList.add("over"); });
-$("#drop").addEventListener("dragleave", () => $("#drop").classList.remove("over"));
-$("#drop").addEventListener("drop", (e) => {
+
+// Drop a PDF anywhere on the page: switch to the PDF tab and read it.
+let dragDepth = 0;
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+const showOverlay = (on) => $("#dropOverlay").classList.toggle("hidden", !on);
+window.addEventListener("dragenter", (e) => {
+  if (!hasFiles(e)) return;
   e.preventDefault();
-  $("#drop").classList.remove("over");
-  handlePdf(e.dataTransfer.files[0]);
+  dragDepth++;
+  showOverlay(true);
+});
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("dragleave", (e) => {
+  if (!hasFiles(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) showOverlay(false);
+});
+window.addEventListener("drop", (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  showOverlay(false);
+  const file = [...e.dataTransfer.files].find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+  if (!file) return showError("That isn't a PDF. Drop the file from LinkedIn's More → Save to PDF.");
+  document.querySelector('.tab[data-tab="pdf"]').click();
+  handlePdf(file);
 });
 
 /* ── main flow ────────────────────────────────────────────────── */
@@ -509,6 +529,7 @@ boot().then(() => {
   // ?u=<profile url or handle> pre-fills and runs, e.g. from a bookmark
   const u = new URLSearchParams(location.search).get("u");
   if (u) {
+    document.querySelector('.tab[data-tab="url"]').click();
     $("#url").value = u;
     $("#form").requestSubmit();
   }

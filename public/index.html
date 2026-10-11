@@ -22,22 +22,22 @@
   <main>
     <section class="panel input-panel">
       <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="url" role="tab">Profile URL</button>
-        <button class="tab" data-tab="pdf" role="tab">Upload PDF</button>
+        <button class="tab active" data-tab="pdf" role="tab">Upload PDF</button>
+        <button class="tab" data-tab="url" role="tab">Profile URL</button>
         <button class="tab" data-tab="text" role="tab">Paste text</button>
       </div>
 
       <form id="form">
-        <div class="tab-body" data-body="url">
-          <input id="url" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
-        </div>
-        <div class="tab-body hidden" data-body="pdf">
+        <div class="tab-body" data-body="pdf">
           <label class="drop" id="drop">
             <input id="pdf" type="file" accept="application/pdf,.pdf" />
             <span id="dropText"><strong>Choose or drop a LinkedIn PDF</strong><br />
               <span class="muted">On the profile: <em>More → Save to PDF</em>. The file is read in your browser and never uploaded.</span></span>
           </label>
+        </div>
+        <div class="tab-body hidden" data-body="url">
+          <input id="url" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
         </div>
         <div class="tab-body hidden" data-body="text">
           <textarea id="text" rows="7"
@@ -107,6 +107,9 @@
   </main>
 
   <footer class="muted">Reads only the logged-out public profile page. The model runs entirely in your browser; profile text never leaves your machine except to build the analysis.</footer>
+  <div id="dropOverlay" class="drop-overlay hidden" aria-hidden="true">
+    <div><strong>Drop the LinkedIn PDF</strong><span>It's read in your browser, never uploaded</span></div>
+  </div>
   <dialog id="modal" class="modal" aria-labelledby="modalTitle">
     <form method="dialog">
       <h2 id="modalTitle"></h2>

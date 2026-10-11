@@ -236,3 +236,14 @@ button.primary.danger-solid { background: var(--bad); }
 .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
 .drop.ready { border-style: solid; border-color: var(--good); }
 .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+/* page-wide PDF drop target */
+.drop-overlay {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 16%, rgba(0, 0, 0, .55)); backdrop-filter: blur(3px);
+}
+.drop-overlay > div {
+  display: flex; flex-direction: column; gap: 6px; align-items: center; padding: 34px 48px;
+  border: 3px dashed #fff; border-radius: 18px; color: #fff; font-size: 20px; text-align: center;
+}
+.drop-overlay span { font-size: 14px; opacity: .85; }
