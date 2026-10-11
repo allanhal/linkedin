@@ -15,6 +15,7 @@ let decider = null; // loaded BrowserDecider
 let engine = null; // lazily imported browser-engine.js module
 let busyModel = null; // id being downloaded/removed
 let source = null; // "pdf" | "url" | "text": which input Analyse uses
+let pdfReading = null; // promise while a dropped PDF is still being read
 let pdfProfile = null; // { text, name, headline, location } read from an uploaded PDF
 let ctrl = null;
 let lastRecs = null;
@@ -188,6 +189,8 @@ function updateEtaHint() {
 /** Turns model-download failures into something actionable. */
 function friendlyError(err) {
   const msg = err?.message || String(err);
+  if (!isSecureContext && /storage backend|storage/i.test(msg))
+    return `The model needs a secure page to store its files. Open https://${location.host}${location.pathname} instead of http://.`;
   const m = msg.match(/(https:\/\/huggingface\.co\/[^/]+\/[^/]+)\/resolve\/[^:]*: HTTP (401|403|404)/);
   if (m) return `Model file not found on Hugging Face (${m[1]} returned ${m[2]}). The repo doesn't exist yet, is private, or is missing this file. Upload the GGUFs to a public repo or serve them from models/.`;
   return msg;
@@ -228,8 +231,13 @@ function confirmModal({ title, message, confirmLabel = "OK", cancelLabel = "Canc
 }
 
 /* ── PDF upload ───────────────────────────────────────────────── */
-async function handlePdf(file) {
+function handlePdf(file) {
   if (!file) return;
+  pdfReading = readPdf(file).finally(() => (pdfReading = null));
+  return pdfReading;
+}
+
+async function readPdf(file) {
   $("#error").classList.add("hidden");
   pdfProfile = null;
   $("#dropText").innerHTML = `<strong>Reading ${esc(file.name)}…</strong>`;
@@ -239,6 +247,7 @@ async function handlePdf(file) {
     $("#dropText").innerHTML = `<strong>${esc(pdfProfile.name || file.name)}</strong>${pdfProfile.headline ? ` · ${esc(pdfProfile.headline)}` : ""}<br />
       <span class="muted">${pdfProfile.pages} page${pdfProfile.pages > 1 ? "s" : ""} · ${pdfProfile.text.length.toLocaleString()} characters read · press Analyse, or choose another file</span>`;
     $("#drop").classList.add("ready");
+    $("#error").classList.add("hidden"); // clear anything shown while the file was being read
     setSource("pdf");
   } catch (err) {
     $("#drop").classList.remove("ready");
@@ -279,6 +288,12 @@ $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").classList.add("hidden");
   if (!selected()) return showError("No model available yet: add one to models.json (local file or Hugging Face repo).");
+  if (pdfReading) {
+    setBusy(true, "Reading PDF…");
+    await pdfReading; // Analyse pressed while the PDF was still being read
+    setBusy(false);
+    if (!pdfProfile && !$("#url").value.trim() && !$("#text").value.trim()) return; // read failed: keep its error
+  }
   const src = source || (pdfProfile ? "pdf" : $("#text").value.trim() ? "text" : $("#url").value.trim() ? "url" : null);
   if (!src) return showError("Drop a LinkedIn PDF, enter a profile link, or paste the profile text.");
   setSource(src);
