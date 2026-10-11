@@ -501,7 +501,7 @@ function resetAnalysis() {
 
 // how sure the model is (entropy-based): shown as a small badge beside the answer
 const confBadge = (c) =>
-  c == null ? "" : `<span class="confpill ${c >= 0.6 ? "hi" : c >= 0.3 ? "mid" : "lo"}" title="How sure the model is about this answer">${pct(c)} sure</span>`;
+  c == null ? "" : `<span class="conf-line ${c >= 0.6 ? "hi" : c >= 0.3 ? "mid" : "lo"}" title="How sure the model is about this answer">${pct(c)} sure</span>`;
 const tone = (x) => (x >= 0.67 ? "var(--good)" : x >= 0.34 ? "var(--warn)" : "var(--bad)");
 
 function renderQuestion(key, a) {
@@ -514,7 +514,7 @@ function renderQuestion(key, a) {
   if (a.type === "choice") {
     const probs = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1]).slice(0, 4);
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val">${esc(choiceLabel(q, a.choice))}</span>${confBadge(a.confidence)}</span></div>
+      <div class="row"><span class="labelwrap"><span class="label">${esc(q.label)}</span>${confBadge(a.confidence)}</span><span class="val">${esc(choiceLabel(q, a.choice))}</span></div>
       <div class="bars">${probs
         .map(([name, p], i) => `<div class="bar ${i === 0 ? "lead" : ""}"><span class="name" title="${esc(q.criteria[name] || "")}">${esc(choiceLabel(q, name))}</span><span class="track"><span class="fill" style="width:${pct(p)}"></span></span><span class="pct">${pct(p)}</span></div>`)
         .join("")}</div>`;
@@ -523,7 +523,7 @@ function renderQuestion(key, a) {
     const norm = a.score / levels;
     const top = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1])[0]?.[0];
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val" style="color:${tone(norm)}">${esc(cap(a.legend?.[top] ?? q.criteria[top]))} · ${a.score.toFixed(1)}/${levels}</span>${confBadge(a.confidence)}</span></div>
+      <div class="row"><span class="labelwrap"><span class="label">${esc(q.label)}</span>${confBadge(a.confidence)}</span><span class="val" style="color:${tone(norm)}">${esc(cap(a.legend?.[top] ?? q.criteria[top]))} · ${a.score.toFixed(1)}/${levels}</span></div>
       <div class="scale">${q.criteria
         .map((_, i) => `<span style="background:${(a.probabilities?.[i] ?? 0) > 0 ? tone(norm) : "var(--track)"};opacity:${0.15 + 0.85 * (a.probabilities?.[i] ?? 0)}"></span>`)
         .join("")}</div>

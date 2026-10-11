@@ -138,7 +138,7 @@ button.ghost { background: none; color: var(--text); border: 1px solid var(--lin
 .q .conf { font-size: 12px; color: var(--muted); }
 .q.pending { opacity: .45; }
 .bars { margin-top: 6px; display: grid; gap: 3px; }
-.bar { display: grid; grid-template-columns: 120px 1fr 42px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.bar { display: grid; grid-template-columns: minmax(110px, 44%) 1fr 42px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
 .bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar .track { display: block; height: 6px; background: var(--track); border-radius: 99px; overflow: hidden; }
 .bar .fill { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
@@ -250,9 +250,17 @@ button.primary.danger-solid { background: var(--bad); }
 }
 .drop-overlay span { font-size: 14px; opacity: .85; }
 
-/* answer + confidence badge in each question header */
-.valwrap { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; justify-content: flex-end; text-align: right; }
-.confpill { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; background: var(--track); color: var(--muted); }
-.confpill.hi { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
-.confpill.mid { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
-.confpill.lo { color: var(--muted); }
+/* confidence: a small line under the question name, so the answer keeps the right side */
+.labelwrap { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.q .row { align-items: flex-start; }
+.q .row .val { text-align: right; }
+.conf-line { font-size: 11.5px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.conf-line::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.conf-line.hi { color: var(--good); }
+.conf-line.mid { color: var(--warn); }
+.conf-line.lo { color: var(--muted); }
+
+/* full-width sections with questions in columns, so no column runs much longer than another */
+.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 0 28px; align-items: start; }
+.qgrid .q { border-top: 0; border-bottom: 1px solid var(--line); padding: 12px 0; }
+.qgrid .q:first-child { padding-top: 12px; }
