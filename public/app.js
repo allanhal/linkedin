@@ -1,6 +1,7 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
+const cap = (t) => String(t ?? "").replace(/^\p{L}/u, (c) => c.toUpperCase());
 const human = (k) => String(k).replace(/_/g, " ").replace(/^\p{L}/u, (c) => c.toUpperCase());
 // readable label for a choice key: the question's `display` map, else the key humanised
 const choiceLabel = (q, key) => q?.display?.[key] ?? human(key);
@@ -507,7 +508,7 @@ function renderQuestion(key, a) {
     const norm = a.score / levels;
     const top = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1])[0]?.[0];
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val" style="color:${tone(norm)}">${esc(a.legend?.[top] ?? q.criteria[top])} · ${a.score.toFixed(1)}/${levels}</span>${confBadge(a.confidence)}</span></div>
+      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val" style="color:${tone(norm)}">${esc(cap(a.legend?.[top] ?? q.criteria[top]))} · ${a.score.toFixed(1)}/${levels}</span>${confBadge(a.confidence)}</span></div>
       <div class="scale">${q.criteria
         .map((_, i) => `<span style="background:${(a.probabilities?.[i] ?? 0) > 0 ? tone(norm) : "var(--track)"};opacity:${0.15 + 0.85 * (a.probabilities?.[i] ?? 0)}"></span>`)
         .join("")}</div>
