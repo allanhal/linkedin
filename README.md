@@ -16,8 +16,12 @@ Open `http://127.0.0.1:3333/?u=<handle>` to fetch and analyse a profile in one s
 
 1. `POST /api/profile` fetches the logged-out profile page (`linkedin.com/in/<handle>`) and parses
    the name, headline, location, audience, About, Experience, Education and any other public list sections.
-   If LinkedIn shows a login wall or rate-limits (HTTP 999/429), use **Paste text** instead.
    Browsers can't read linkedin.com directly, which is why this step runs on the server.
+   LinkedIn blocks most automated lookups (HTTP 999) after a few requests, so the robust path is
+   **Upload PDF**: on the profile, *More → Save to PDF*, then drop the file in. `public/pdf-import.js` reads it in
+   the browser with pdf.js. The file is never uploaded, and the reader separates LinkedIn's sidebar column from the
+   main column and detects the name, headline and location. Image-only PDFs (screenshots) have no text and are rejected.
+   **Paste text** also works.
 2. The page downloads the selected model once (cached in browser storage), loads it, and asks the
    rubric in `lib/jev.js` (`QUESTIONS`), one question at a time:
    * `choice`: seniority, function, industry (with a probability for each option)

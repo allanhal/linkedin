@@ -21,6 +21,7 @@ app.use((_req, res, next) => {
 });
 app.use(express.json({ limit: "512kb" }));
 app.use(express.static(path.join(dir, "public")));
+app.use("/vendor/pdfjs", express.static(path.join(dir, "node_modules/pdfjs-dist/build"), { maxAge: "7d" }));
 app.use("/vendor/wllama", express.static(path.join(dir, "node_modules/@wllama/wllama/esm"), { maxAge: "7d" }));
 app.use("/models", express.static(MODELS_DIR, { maxAge: "30d", immutable: true, index: false }));
 
@@ -73,8 +74,8 @@ app.get("/api/config", (_req, res) => {
 
 app.post("/api/profile", async (req, res) => {
   try {
-    const { url, text } = req.body || {};
-    if (text) return res.json(profileFromText(text));
+    const { url, text, name, headline, location, source } = req.body || {};
+    if (text) return res.json(profileFromText(text, { name, headline, location, source }));
     const key = String(url || "").trim().toLowerCase();
     const hit = cache.get(key);
     if (hit && Date.now() - hit.t < CACHE_MS) return res.json({ ...hit.p, cached: true });

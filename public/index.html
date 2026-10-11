@@ -23,6 +23,7 @@
     <section class="panel input-panel">
       <div class="tabs" role="tablist">
         <button class="tab active" data-tab="url" role="tab">Profile URL</button>
+        <button class="tab" data-tab="pdf" role="tab">Upload PDF</button>
         <button class="tab" data-tab="text" role="tab">Paste text</button>
       </div>
 
@@ -30,6 +31,13 @@
         <div class="tab-body" data-body="url">
           <input id="url" type="text" autocomplete="off" spellcheck="false"
                  placeholder="https://www.linkedin.com/in/handle  — or just the handle" />
+        </div>
+        <div class="tab-body hidden" data-body="pdf">
+          <label class="drop" id="drop">
+            <input id="pdf" type="file" accept="application/pdf,.pdf" />
+            <span id="dropText"><strong>Choose or drop a LinkedIn PDF</strong><br />
+              <span class="muted">On the profile: <em>More → Save to PDF</em>. The file is read in your browser and never uploaded.</span></span>
+          </label>
         </div>
         <div class="tab-body hidden" data-body="text">
           <textarea id="text" rows="7"
@@ -99,6 +107,16 @@
   </main>
 
   <footer class="muted">Reads only the logged-out public profile page. The model runs entirely in your browser; profile text never leaves your machine except to build the analysis.</footer>
+  <dialog id="modal" class="modal" aria-labelledby="modalTitle">
+    <form method="dialog">
+      <h2 id="modalTitle"></h2>
+      <p id="modalMessage" class="muted"></p>
+      <div class="modal-actions">
+        <button id="modalCancel" class="ghost" value="cancel">Cancel</button>
+        <button id="modalOk" class="primary" value="ok">OK</button>
+      </div>
+    </form>
+  </dialog>
   <script src="app.js" type="module"></script>
 </body>
 </html>

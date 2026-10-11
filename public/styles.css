@@ -216,3 +216,23 @@ button.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 4
   .model-row { grid-template-columns: auto 1fr; }
   .mside { grid-column: 2; justify-content: flex-start; }
 }
+
+/* modal (never use native alert/confirm) */
+.modal {
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; width: min(420px, calc(100vw - 32px));
+  background: var(--panel); color: var(--text); box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+}
+.modal::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px); }
+.modal h2 { margin: 0 0 8px; font-size: 17px; }
+.modal p { margin: 0 0 18px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+button.primary.danger-solid { background: var(--bad); }
+
+/* PDF drop zone */
+.drop {
+  display: flex; align-items: center; justify-content: center; text-align: center; min-height: 110px; padding: 16px;
+  border: 2px dashed var(--line); border-radius: 10px; cursor: pointer; background: var(--bg); font-size: 14px;
+}
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop.ready { border-style: solid; border-color: var(--good); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }

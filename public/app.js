@@ -11,6 +11,7 @@ let decider = null; // loaded BrowserDecider
 let engine = null; // lazily imported browser-engine.js module
 let busyModel = null; // id being downloaded/removed
 let tab = "url";
+let pdfProfile = null; // { text, name, headline, location } read from an uploaded PDF
 let ctrl = null;
 let lastRecs = null;
 const answers = {};
@@ -95,7 +96,13 @@ $("#models").addEventListener("click", async (e) => {
   if (!m || busyModel) return;
   const { downloadModel, removeModel } = await loadEngine();
   if (btn.dataset.act === "remove") {
-    if (!confirm(`Remove ${m.name} ${m.quant} from this browser? You can download it again later.`)) return;
+    const ok = await confirmModal({
+      title: `Remove ${m.name} ${m.quant}?`,
+      message: `This deletes the downloaded model${m.bytes ? ` (${mb(m.bytes)})` : ""} from this browser. You can download it again later.`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     busyModel = m.id;
     renderModels();
     try {
@@ -162,19 +169,77 @@ function friendlyError(err) {
   return msg;
 }
 
-function showError(msg, suggestPaste) {
+function showError(msg, suggestPdf) {
   const el = $("#error");
-  el.innerHTML = esc(msg) + (suggestPaste ? ` <a href="#" id="toPaste">Switch to paste mode →</a>` : "");
+  el.innerHTML = esc(msg) + (suggestPdf ? ` <a href="#" id="toPdf">Upload the profile's PDF instead →</a>` : "");
   el.classList.remove("hidden");
-  $("#toPaste")?.addEventListener("click", (e) => { e.preventDefault(); document.querySelector('.tab[data-tab="text"]').click(); });
+  $("#toPdf")?.addEventListener("click", (e) => { e.preventDefault(); document.querySelector('.tab[data-tab="pdf"]').click(); });
 }
+
+/* ── modal ────────────────────────────────────────────────────── */
+// In-page replacement for confirm(): resolves true on confirm, false on cancel/Escape/backdrop.
+function confirmModal({ title, message, confirmLabel = "OK", cancelLabel = "Cancel", danger = false }) {
+  const dlg = $("#modal");
+  $("#modalTitle").textContent = title;
+  $("#modalMessage").textContent = message;
+  const ok = $("#modalOk");
+  ok.textContent = confirmLabel;
+  ok.classList.toggle("danger-solid", danger);
+  $("#modalCancel").textContent = cancelLabel;
+  return new Promise((resolve) => {
+    const done = (v) => {
+      dlg.removeEventListener("close", onClose);
+      dlg.removeEventListener("click", onBackdrop);
+      if (dlg.open) dlg.close();
+      resolve(v);
+    };
+    const onClose = () => done(dlg.returnValue === "ok");
+    const onBackdrop = (e) => { if (e.target === dlg) done(false); };
+    dlg.returnValue = "";
+    dlg.addEventListener("close", onClose);
+    dlg.addEventListener("click", onBackdrop);
+    dlg.showModal();
+    $("#modalCancel").focus();
+  });
+}
+
+/* ── PDF upload ───────────────────────────────────────────────── */
+async function handlePdf(file) {
+  if (!file) return;
+  $("#error").classList.add("hidden");
+  pdfProfile = null;
+  $("#dropText").innerHTML = `<strong>Reading ${esc(file.name)}…</strong>`;
+  try {
+    const { readProfilePdf } = await import("./pdf-import.js");
+    pdfProfile = await readProfilePdf(file);
+    $("#dropText").innerHTML = `<strong>${esc(pdfProfile.name || file.name)}</strong>${pdfProfile.headline ? ` · ${esc(pdfProfile.headline)}` : ""}<br />
+      <span class="muted">${pdfProfile.pages} page${pdfProfile.pages > 1 ? "s" : ""} · ${pdfProfile.text.length.toLocaleString()} characters read · press Analyse, or choose another file</span>`;
+    $("#drop").classList.add("ready");
+  } catch (err) {
+    $("#drop").classList.remove("ready");
+    $("#dropText").innerHTML = `<strong>Choose or drop a LinkedIn PDF</strong>`;
+    showError("Could not read PDF: " + (err.message || err));
+  }
+}
+$("#pdf").addEventListener("change", (e) => handlePdf(e.target.files[0]));
+$("#drop").addEventListener("dragover", (e) => { e.preventDefault(); $("#drop").classList.add("over"); });
+$("#drop").addEventListener("dragleave", () => $("#drop").classList.remove("over"));
+$("#drop").addEventListener("drop", (e) => {
+  e.preventDefault();
+  $("#drop").classList.remove("over");
+  handlePdf(e.dataTransfer.files[0]);
+});
 
 /* ── main flow ────────────────────────────────────────────────── */
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#error").classList.add("hidden");
   if (!selected()) return showError("No model available yet: add one to models.json (local file or Hugging Face repo).");
-  const body = tab === "url" ? { url: $("#url").value.trim() } : { text: $("#text").value };
+  if (tab === "pdf" && !pdfProfile) return showError("Choose a LinkedIn profile PDF first.");
+  const body =
+    tab === "url" ? { url: $("#url").value.trim() }
+    : tab === "pdf" ? { text: pdfProfile.text, name: pdfProfile.name, headline: pdfProfile.headline, location: pdfProfile.location, source: "pdf" }
+    : { text: $("#text").value };
   if (tab === "url") try { localStorage.setItem("lia-url", body.url); } catch {}
 
   setBusy(true, "Fetching profile…");
@@ -321,7 +386,7 @@ function renderProfile(p) {
       <h2>${esc(p.name)}</h2>
       <p class="headline">${esc(p.headline)}</p>
       <div class="meta">${[p.location, p.followers && p.followers + " followers", p.connections && p.connections + " connections"].filter(Boolean).map(esc).join(" · ")}</div>
-      ${p.url ? `<div class="meta"><a href="${esc(p.url)}" target="_blank" rel="noopener">View on LinkedIn ↗</a>${p.cached ? " · cached" : ""}</div>` : `<div class="meta">From pasted text</div>`}
+      ${p.url ? `<div class="meta"><a href="${esc(p.url)}" target="_blank" rel="noopener">View on LinkedIn ↗</a>${p.cached ? " · cached" : ""}</div>` : `<div class="meta">${p.source === "pdf" ? "From uploaded PDF" : "From pasted text"}</div>`}
       ${p.about ? `<h3>About</h3><div class="about">${esc(p.about)}</div>` : ""}
       ${sec("experience")}
       ${sec("education")}
