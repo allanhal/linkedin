@@ -39,17 +39,21 @@ Edit `QUESTIONS` in `lib/jev.js` to change the rubric. The UI renders whatever i
 used, and **removed** from the browser from the model list, which also shows how much storage is used.
 Only one model is kept in memory at a time.
 
-| Model | Size | Notes |
-|-------|------|-------|
-| tev1 0.8B Q8_0 | 774 MB | default; best balance |
-| tev1 0.8B Q4_K_M | 505 MB | smallest and fastest |
-| tev1 4B Q4_K_M | 2.6 GB, 7 shards | most accurate; needs a capable GPU or plenty of RAM |
+| Model | Size | Where browsers get it |
+|-------|------|-----------------------|
+| tev1 0.8B Q8_0 | 774 MB | [allanhal/tev1-models](https://github.com/allanhal/tev1-models) on GitHub Pages (default) |
+| tev1 0.8B Q4_K_M | 505 MB | only when the file is in `models/` |
+| tev1 4B Q4_K_M | 2.6 GB, 7 shards | only when the files are in `models/` |
 
-The GGUF files are not in git (`models/` is ignored). Put them in `models/` with the names from `models.json`,
-or give an entry a `url` to load it from a CDN or Hugging Face instead (that host must allow CORS):
+For each entry the server serves `models/<file>` if it exists, otherwise the remote copy:
+`"hf": "<user>/<repo>"` (public Hugging Face repo, no key needed) or `"url"` (any host that sends CORS headers).
+GitHub Pages works (it sends `Access-Control-Allow-Origin: *`). GitHub Releases does not.
+
+GitHub rejects files over 100 MB, so the Q8 model is stored as 9 byte-chunks (`<file>.part000`…`.part008`,
+made with `split -b 90m -a 3 -d`). `"parts": 9` tells the page to download the chunks and join them before loading:
 
 ```json
-{ "id": "tev1-0.8b-q8", "name": "tev1 0.8B", "quant": "Q8_0", "url": "https://huggingface.co/<you>/<repo>/resolve/main/tev1-0.8b-q8_0.gguf", "bytes": 811843424 }
+{ "id": "tev1-0.8b-q8", "file": "tev1-0.8b-q8_0.gguf", "url": "https://allanhal.github.io/tev1-models/tev1-0.8b-q8_0.gguf", "parts": 9 }
 ```
 
 Browsers can't load a single file over 2 GB, so large models must be split into shards. Use

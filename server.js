@@ -28,8 +28,10 @@ app.use("/models", express.static(MODELS_DIR, { maxAge: "30d", immutable: true, 
 // models.json lists the GGUFs the browser can run. For each entry the browser downloads:
 //   1. MODELS_DIR/<file> served at /models/… when the file exists locally, else
 //   2. https://huggingface.co/<hf>/resolve/main/<file> (public repos need no key and send CORS), else
-//   3. `url` (any CORS-enabled host).
+//   3. `url` (any CORS-enabled host, e.g. GitHub Pages).
 // Split models (`name-00001-of-0000N.gguf`) list the first shard; wllama fetches the rest.
+// `parts: N` means the remote file is byte-chunked as <url>.part000 … (for hosts with a
+// per-file size limit, like GitHub's 100 MB); the browser joins the chunks before loading.
 const SHARD = /-(\d{5})-of-(\d{5})\.gguf$/;
 
 function shardNames(file) {
@@ -49,6 +51,10 @@ function loadCatalog() {
       return { ...m, source: "local", files: names.map((n) => `/models/${encodeURIComponent(n)}`), bytes, available: true };
     }
     const remote = m.hf ? `https://huggingface.co/${m.hf}/resolve/main/${m.file}` : m.url;
+    if (remote && m.parts) {
+      const files = Array.from({ length: m.parts }, (_, i) => `${remote}.part${String(i).padStart(3, "0")}`);
+      return { ...m, source: "url", files, chunked: true, bytes: m.bytes ?? null, available: true };
+    }
     if (remote) {
       const base = remote.slice(0, remote.lastIndexOf("/") + 1);
       return { ...m, source: m.hf ? "huggingface" : "url", files: names.map((n) => base + encodeURIComponent(n)), bytes: m.bytes ?? null, available: true };

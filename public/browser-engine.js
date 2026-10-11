@@ -103,10 +103,16 @@ export async function cachedModels(models) {
   return out;
 }
 
-/** Downloads every shard into browser storage without loading the model. */
+/** Downloads every shard/chunk not yet in browser storage, without loading the model. */
 export async function downloadModel(model, onProgress, signal) {
+  const have = new Map((await cache.list()).map((e) => [e.metadata?.originalURL, e.size]));
   const totals = new Map();
   for (const f of model.files) {
+    if (have.has(abs(f))) {
+      const size = have.get(abs(f));
+      totals.set(f, { loaded: size, total: size });
+      continue;
+    }
     await cache.download(abs(f), {
       signal,
       progressCallback: ({ loaded, total }) => {
@@ -159,11 +165,16 @@ export class BrowserDecider {
         { default: "/vendor/wllama/wasm/wllama.wasm" },
         { suppressNativeLog: true, cacheManager: cache, parallelDownloads: 4, logger: { debug() {}, log() {}, info() {}, warn: console.warn, error: console.error } }
       );
-      await w.loadModelFromUrl(this.modelUrl, {
-        n_ctx: N_CTX,
-        n_batch: 512,
-        progressCallback: ({ loaded, total }) => onProgress?.({ loaded, total }),
-      });
+      const params = { n_ctx: N_CTX, n_batch: 512 };
+      if (this.model.chunked) {
+        // byte-chunked file (e.g. GitHub Pages): fetch every chunk into the cache, then join
+        await downloadModel(this.model, onProgress);
+        const parts = await Promise.all(this.model.files.map((f) => cache.open(abs(f))));
+        if (parts.some((b) => !b)) throw new Error("Model chunks missing from browser storage");
+        await w.loadModel([new Blob(parts)], params);
+      } else {
+        await w.loadModelFromUrl(this.modelUrl, { ...params, progressCallback: ({ loaded, total }) => onProgress?.({ loaded, total }) });
+      }
       this.wllama = w;
     })();
     this.loading.catch(() => (this.loading = null));

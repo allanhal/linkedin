@@ -115,7 +115,7 @@ $("#models").addEventListener("click", async (e) => {
         if (el) el.textContent = `${mb(loaded)} / ${mb(total)}${total > loaded && rate ? ` · ~${fmtS((total - loaded) / rate)}` : ""}`;
       });
     } catch (err) {
-      showError("Download failed: " + err.message);
+      showError("Download failed: " + friendlyError(err));
     }
   }
   busyModel = null;
@@ -152,6 +152,14 @@ function updateEtaHint() {
   if (sp) hint = `≈ ${fmtS(sp * n)} per analysis with ${m.name} ${m.quant} (measured on this device)`;
   else if (m) hint = `${n} questions · time is estimated after the first run on this device`;
   $("#etaHint").textContent = hint;
+}
+
+/** Turns model-download failures into something actionable. */
+function friendlyError(err) {
+  const msg = err?.message || String(err);
+  const m = msg.match(/(https:\/\/huggingface\.co\/[^/]+\/[^/]+)\/resolve\/[^:]*: HTTP (401|403|404)/);
+  if (m) return `Model file not found on Hugging Face (${m[1]} returned ${m[2]}). The repo doesn't exist yet, is private, or is missing this file. Upload the GGUFs to a public repo or serve them from models/.`;
+  return msg;
 }
 
 function showError(msg, suggestPaste) {
@@ -237,7 +245,7 @@ async function runAnalysis(profile) {
     $("#progressText").textContent = `Done · ${keys.length} questions in ${fmtS(total)} with ${model.name} ${model.quant}${decider?.backend ? ` (${decider.backend})` : ""}`;
   } catch (err) {
     if (err.name === "AbortError" || ctrl?.signal.aborted) $("#progressText").textContent = `Stopped after ${done}/${keys.length}`;
-    else { showError("Analysis failed: " + err.message); $("#progressText").textContent = "Failed"; }
+    else { showError("Analysis failed: " + friendlyError(err)); $("#progressText").textContent = "Failed"; }
   } finally {
     $("#raw").textContent = JSON.stringify(answers, null, 2);
     setBusy(false);

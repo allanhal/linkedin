@@ -4,7 +4,8 @@
     "name": "tev1 0.8B",
     "quant": "Q8_0",
     "file": "tev1-0.8b-q8_0.gguf",
-    "hf": "allanhal/tev1-gguf",
+    "url": "https://allanhal.github.io/tev1-models/tev1-0.8b-q8_0.gguf",
+    "parts": 9,
     "bytes": 811843424,
     "notes": "Recommended balance of accuracy and speed.",
     "default": true
@@ -14,7 +15,6 @@
     "name": "tev1 0.8B",
     "quant": "Q4_K_M",
     "file": "tev1-0.8b-q4_k_m.gguf",
-    "hf": "allanhal/tev1-gguf",
     "bytes": 529297248,
     "notes": "Smallest download and fastest; slightly less accurate."
   },
@@ -23,7 +23,6 @@
     "name": "tev1 4B",
     "quant": "Q4_K_M",
     "file": "tev1-4b-q4_k_m-00001-of-00007.gguf",
-    "hf": "allanhal/tev1-gguf",
     "bytes": 2708805152,
     "notes": "Most accurate. Large download; needs a capable GPU or plenty of RAM."
   }
