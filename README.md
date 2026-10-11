@@ -24,8 +24,15 @@ Open `http://127.0.0.1:3333/?u=<handle>` to fetch and analyse a profile in one s
    **Paste text** also works.
 2. The page downloads the selected model once (cached in browser storage), loads it, and asks the
    rubric in `lib/jev.js` (`QUESTIONS`), one question at a time:
-   * `choice` (a probability for each option): seniority (8 levels), years of experience, primary function
-     (24 options), industry (25), career track, company type, region
+   * `choice` (a probability for each option), using LinkedIn's own taxonomies in `lib/taxonomy.json`
+     (sources listed in it): seniority (LinkedIn's 10 levels), the 26 LinkedIn job functions plus a specialty
+     follow-up, the 20 Industry Codes V2 groups plus a follow-up within the chosen group, company size bands,
+     employment type, workplace type, highest degree, field of study, years of experience, career track,
+     company type and region. A follow-up question (`subOf`) offers only the options under the parent's answer,
+     which keeps every question within the model's 26-option limit.
+   * Some answers (content creator, looking for work, workplace) are only asked when the text contains
+     evidence for them (`evidence` pattern). Otherwise they show "No evidence" / "Not specified", because the
+     small model tends to guess "yes" from nothing.
    * `score` (0–3): headline, about, experience detail, completeness, recruiter appeal → overall score
    * `noul` (0–1): leadership, founder, technical, quantified impact, open to work, job hopping, …
 3. tev1 has a hard 2050-token window. The profile text (`state`, built by `POST /api/state`) is capped at

@@ -1,10 +1,10 @@
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
-const human = (k) => String(k).replace(/_/g, " ");
+const human = (k) => String(k).replace(/_/g, " ").replace(/^\p{L}/u, (c) => c.toUpperCase());
 // readable label for a choice key: the question's `display` map, else the key humanised
 const choiceLabel = (q, key) => q?.display?.[key] ?? human(key);
-const VAGUE = new Set(["other", "unclear"]);
+const VAGUE = new Set(["other", "unclear", "not_specified"]);
 
 let QUESTIONS = {};
 let MODELS = [];
@@ -18,6 +18,21 @@ let pdfProfile = null; // { text, name, headline, location } read from an upload
 let ctrl = null;
 let lastRecs = null;
 const answers = {};
+const resolved = {}; // question key → the question as asked this run (follow-ups get their parent's options)
+
+/**
+ * Follow-up questions (`subOf: "<parent key>"`) take their options from `byParent[<parent answer>]`
+ * ({ criteria, display }), so a broad answer (e.g. industry group) can be refined within the
+ * model's 26-option limit. Returns null when the parent answer has no follow-up (e.g. "other").
+ */
+function resolveQuestion(q, got) {
+  if (!q.subOf) return q;
+  const parent = got[q.subOf]?.choice;
+  const sub = parent && q.byParent?.[parent];
+  if (!sub) return null;
+  return { ...q, criteria: sub.criteria, display: { ...(q.display || {}), ...(sub.display || {}) } };
+}
+const asked = (key) => resolved[key] || QUESTIONS[key];
 
 const loadEngine = async () => (engine ??= await import("./browser-engine.js"));
 const selected = () => MODELS.find((m) => m.id === selectedId);
@@ -316,7 +331,11 @@ async function runAnalysis(profile) {
     if (ev.type === "state") $("#state").textContent = ev.state;
     else if (ev.type === "recommendations") renderRecs(ev);
     else if (ev.type === "progress") $("#progressText").textContent = ev.text;
-    else if (ev.type === "answer") {
+    else if (ev.type === "skip") {
+      done++;
+      $(`#q-${ev.key}`)?.remove();
+      $("#bar").style.width = pct(done / keys.length);
+    } else if (ev.type === "answer") {
       answers[ev.key] = ev.answer;
       done++;
       if (done === 1) firstAnswerAt = performance.now();
@@ -385,10 +404,26 @@ async function runInBrowser(profile, model, onEvent, signal) {
   let { state } = await post("/api/state", { profile });
   onEvent({ type: "state", state });
   const got = {};
-  for (const [key, q] of Object.entries(QUESTIONS)) {
+  for (const [key, base] of Object.entries(QUESTIONS)) {
     if (signal.aborted) throw new DOMException("aborted", "AbortError");
+    const q = resolveQuestion(base, got);
+    if (!q) {
+      onEvent({ type: "skip", key });
+      continue;
+    }
+    resolved[key] = q;
     const t = performance.now();
-    const { group, label, display, ...wire } = q;
+    // yes/no signals with an `evidence` pattern are only asked when the text shows that evidence;
+    // otherwise the small model tends to guess "yes" from nothing
+    if (q.evidence && !new RegExp(q.evidence, "i").test(state)) {
+      got[key] =
+        q.type === "choice"
+          ? { type: "choice", choice: q.fallback, probabilities: { [q.fallback]: 1 }, confidence: null, gated: true }
+          : { type: "noul", noul: 0.03, gated: true };
+      onEvent({ type: "answer", key, question: q, answer: got[key], ms: 0 });
+      continue;
+    }
+    const { group, label, display, subOf, byParent, evidence, ...wire } = q;
     const out = await decider.ask(state, key, wire, signal);
     state = out.state; // keep any shrink for later questions
     got[key] = out.answer;
@@ -426,6 +461,7 @@ function renderProfile(p) {
 
 function resetAnalysis() {
   for (const k of Object.keys(answers)) delete answers[k];
+  for (const k of Object.keys(resolved)) delete resolved[k];
   $("#bar").style.width = "0";
   $("#chips").innerHTML = "";
   $("#overall").textContent = "–";
@@ -447,10 +483,13 @@ function resetAnalysis() {
   }
 }
 
+// how sure the model is (entropy-based): shown as a small badge beside the answer
+const confBadge = (c) =>
+  c == null ? "" : `<span class="confpill ${c >= 0.6 ? "hi" : c >= 0.3 ? "mid" : "lo"}" title="How sure the model is about this answer">${pct(c)} sure</span>`;
 const tone = (x) => (x >= 0.67 ? "var(--good)" : x >= 0.34 ? "var(--warn)" : "var(--bad)");
 
 function renderQuestion(key, a) {
-  const q = QUESTIONS[key];
+  const q = asked(key);
   const el = $(`#q-${key}`);
   if (!el || !a) return;
   el.classList.remove("pending");
@@ -459,27 +498,25 @@ function renderQuestion(key, a) {
   if (a.type === "choice") {
     const probs = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1]).slice(0, 4);
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="val">${esc(choiceLabel(q, a.choice))}</span></div>
+      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val">${esc(choiceLabel(q, a.choice))}</span>${confBadge(a.confidence)}</span></div>
       <div class="bars">${probs
         .map(([name, p], i) => `<div class="bar ${i === 0 ? "lead" : ""}"><span class="name" title="${esc(q.criteria[name] || "")}">${esc(choiceLabel(q, name))}</span><span class="track"><span class="fill" style="width:${pct(p)}"></span></span><span class="pct">${pct(p)}</span></div>`)
-        .join("")}</div>
-      <div class="conf">confidence ${pct(a.confidence)}</div>`;
+        .join("")}</div>`;
   } else if (a.type === "score") {
     const levels = q.criteria.length - 1;
     const norm = a.score / levels;
     const top = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1])[0]?.[0];
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="val" style="color:${tone(norm)}">${esc(a.legend?.[top] ?? q.criteria[top])} · ${a.score.toFixed(1)}/${levels}</span></div>
+      <div class="row"><span class="label">${esc(q.label)}</span><span class="valwrap"><span class="val" style="color:${tone(norm)}">${esc(a.legend?.[top] ?? q.criteria[top])} · ${a.score.toFixed(1)}/${levels}</span>${confBadge(a.confidence)}</span></div>
       <div class="scale">${q.criteria
         .map((_, i) => `<span style="background:${(a.probabilities?.[i] ?? 0) > 0 ? tone(norm) : "var(--track)"};opacity:${0.15 + 0.85 * (a.probabilities?.[i] ?? 0)}"></span>`)
         .join("")}</div>
-      <div class="scale-legend"><span>${esc(q.criteria[0])}</span><span>${esc(q.criteria[levels])}</span></div>
-      <div class="conf">confidence ${pct(a.confidence)}</div>`;
+      <div class="scale-legend"><span>${esc(q.criteria[0])}</span><span>${esc(q.criteria[levels])}</span></div>`;
   } else {
     const v = a.noul ?? 0.5;
-    const word = v >= 0.7 ? "Yes" : v <= 0.3 ? "No" : "Unsure";
+    const word = a.gated ? "No evidence" : v >= 0.7 ? "Yes" : v <= 0.3 ? "No" : "Unsure";
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="val" style="color:${v >= 0.7 ? "var(--good)" : v <= 0.3 ? "var(--muted)" : "var(--warn)"}">${word} · ${pct(v)}</span></div>
+      <div class="row"><span class="label">${esc(q.label)}</span><span class="val" style="color:${v >= 0.7 ? "var(--good)" : v <= 0.3 ? "var(--muted)" : "var(--warn)"}">${a.gated ? word : `${word} · ${pct(v)}`}</span></div>
       <div class="meter"><span class="fill" style="width:${pct(v)};background:${v >= 0.7 ? "var(--good)" : v <= 0.3 ? "var(--muted)" : "var(--warn)"}"></span></div>`;
   }
 }
@@ -497,10 +534,12 @@ function renderSummary() {
     fg.style.stroke = tone(avg);
   }
   const chips = [];
+  // a refined follow-up answer replaces its broad parent in the tags
+  const refined = new Set(Object.keys(answers).map((k) => QUESTIONS[k]?.subOf).filter(Boolean));
   for (const [k, q] of Object.entries(QUESTIONS)) {
     const a = answers[k];
-    if (!a) continue;
-    if (a.type === "choice" && !VAGUE.has(a.choice)) chips.push(choiceLabel(q, a.choice));
+    if (!a || refined.has(k)) continue;
+    if (a.type === "choice" && !VAGUE.has(a.choice)) chips.push(choiceLabel(asked(k), a.choice));
     if (a.type === "noul" && q.group === "Signals" && a.noul >= 0.7) chips.push(q.label);
   }
   $("#chips").innerHTML = chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("");
