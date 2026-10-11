@@ -45,19 +45,24 @@ async function pageLines(page) {
       .sort((a, b) => b.y - a.y) // top to bottom
       .map((r) => ({ size: r.size, text: r.parts.sort((a, b) => a.x - b.x).map((p) => p.text).join(" ").replace(/\s+/g, " ") }));
   };
-  // main column (the one holding the largest text, i.e. the name) first, sidebar after
-  const cols = columns.map(toRows).sort((a, b) => Math.max(0, ...b.map((r) => r.size)) - Math.max(0, ...a.map((r) => r.size)));
-  return cols.flat();
+  if (columns.length === 1) return { main: toRows(columns[0]), side: [] };
+  // the sidebar is the narrower, left column; the main column holds the name and experience
+  const [left, right] = columns.map(toRows);
+  return { main: right, side: left };
 }
 
 export async function readProfilePdf(file) {
   if (file.size > 25 * 1024 * 1024) throw new Error("PDF is larger than 25 MB");
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  const lines = [];
+  // main column of every page first (so experience reads continuously across pages), sidebars last
+  const main = [];
+  const side = [];
   for (let i = 1; i <= Math.min(doc.numPages, 15); i++) {
-    const page = await doc.getPage(i);
-    lines.push(...(await pageLines(page)).map((l) => ({ ...l, page: i })));
+    const cols = await pageLines(await doc.getPage(i));
+    main.push(...cols.main.map((l) => ({ ...l, page: i })));
+    side.push(...cols.side.map((l) => ({ ...l, page: i })));
   }
+  const lines = [...main, ...side];
   await doc.destroy();
 
   const kept = lines.filter((l) => !NOISE.test(l.text));
