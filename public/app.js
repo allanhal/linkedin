@@ -2,6 +2,9 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const pct = (x) => `${Math.round((x ?? 0) * 100)}%`;
 const human = (k) => String(k).replace(/_/g, " ");
+// readable label for a choice key: the question's `display` map, else the key humanised
+const choiceLabel = (q, key) => q?.display?.[key] ?? human(key);
+const VAGUE = new Set(["other", "unclear"]);
 
 let QUESTIONS = {};
 let MODELS = [];
@@ -385,7 +388,7 @@ async function runInBrowser(profile, model, onEvent, signal) {
   for (const [key, q] of Object.entries(QUESTIONS)) {
     if (signal.aborted) throw new DOMException("aborted", "AbortError");
     const t = performance.now();
-    const { group, label, ...wire } = q;
+    const { group, label, display, ...wire } = q;
     const out = await decider.ask(state, key, wire, signal);
     state = out.state; // keep any shrink for later questions
     got[key] = out.answer;
@@ -456,9 +459,9 @@ function renderQuestion(key, a) {
   if (a.type === "choice") {
     const probs = Object.entries(a.probabilities || {}).sort((x, y) => y[1] - x[1]).slice(0, 4);
     el.innerHTML = `
-      <div class="row"><span class="label">${esc(q.label)}</span><span class="val">${esc(human(a.choice))}</span></div>
+      <div class="row"><span class="label">${esc(q.label)}</span><span class="val">${esc(choiceLabel(q, a.choice))}</span></div>
       <div class="bars">${probs
-        .map(([name, p], i) => `<div class="bar ${i === 0 ? "lead" : ""}"><span class="name" title="${esc(q.criteria[name] || "")}">${esc(human(name))}</span><span class="track"><span class="fill" style="width:${pct(p)}"></span></span><span class="pct">${pct(p)}</span></div>`)
+        .map(([name, p], i) => `<div class="bar ${i === 0 ? "lead" : ""}"><span class="name" title="${esc(q.criteria[name] || "")}">${esc(choiceLabel(q, name))}</span><span class="track"><span class="fill" style="width:${pct(p)}"></span></span><span class="pct">${pct(p)}</span></div>`)
         .join("")}</div>
       <div class="conf">confidence ${pct(a.confidence)}</div>`;
   } else if (a.type === "score") {
@@ -497,7 +500,7 @@ function renderSummary() {
   for (const [k, q] of Object.entries(QUESTIONS)) {
     const a = answers[k];
     if (!a) continue;
-    if (a.type === "choice") chips.push(human(a.choice));
+    if (a.type === "choice" && !VAGUE.has(a.choice)) chips.push(choiceLabel(q, a.choice));
     if (a.type === "noul" && q.group === "Signals" && a.noul >= 0.7) chips.push(q.label);
   }
   $("#chips").innerHTML = chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("");
